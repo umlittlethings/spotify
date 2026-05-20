@@ -1,7 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './index.css';
 
-export default function Player({ token, deviceId, currentTrack, isPlaying, setIsPlaying }) {
+export default function Player({ token, deviceId, playerObj, currentTrack, isPlaying, setIsPlaying }) {
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (playerObj && isPlaying) {
+      interval = setInterval(() => {
+        playerObj.getCurrentState().then(state => {
+          if (!state) return;
+          setPosition(state.position);
+          setDuration(state.duration);
+        });
+      }, 1000);
+    } else if (playerObj && !isPlaying) {
+      // Just fetch once when paused to ensure accurate time
+      playerObj.getCurrentState().then(state => {
+        if (state) {
+          setPosition(state.position);
+          setDuration(state.duration);
+        }
+      });
+    }
+    return () => clearInterval(interval);
+  }, [playerObj, isPlaying]);
+
   const handlePlayPause = () => {
     if (isPlaying) {
       fetch(`https://api.spotify.com/v1/me/player/pause${deviceId ? `?device_id=${deviceId}` : ''}`, {
@@ -29,6 +54,26 @@ export default function Player({ token, deviceId, currentTrack, isPlaying, setIs
       headers: { Authorization: `Bearer ${token}` }
     }).catch(err => console.error("Prev failed", err));
   };
+
+  const handleSeek = (e) => {
+    if (!playerObj || !duration) return;
+    const progressBar = e.currentTarget;
+    const clickX = e.clientX - progressBar.getBoundingClientRect().left;
+    const newPosition = (clickX / progressBar.offsetWidth) * duration;
+    playerObj.seek(newPosition).then(() => {
+      setPosition(newPosition);
+    });
+  };
+
+  const formatTime = (ms) => {
+    if (!ms) return "0:00";
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
 
   return (
     <div className="now-playing-bar">
@@ -61,11 +106,11 @@ export default function Player({ token, deviceId, currentTrack, isPlaying, setIs
           <button className="np-btn"><span className="material-icons">repeat</span></button>
         </div>
         <div className="np-progress">
-          <span>0:00</span>
-          <div className="progress-bar">
-            <div className="progress-bar__fill" style={{ width: '30%' }}></div>
+          <span>{formatTime(position)}</span>
+          <div className="progress-bar" onClick={handleSeek} style={{ cursor: 'pointer' }}>
+            <div className="progress-bar__fill" style={{ width: `${progressPercent}%` }}></div>
           </div>
-          <span>3:45</span>
+          <span>{formatTime(duration)}</span>
         </div>
       </div>
 

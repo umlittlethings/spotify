@@ -10,6 +10,18 @@ export default function Dashboard({ token }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [deviceId, setDeviceId] = useState(null);
   const [playerObj, setPlayerObj] = useState(null);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  
+  const [selectedPlaylist, setSelectedPlaylist] = useState(null);
+  const [playlistTracks, setPlaylistTracks] = useState([]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    window.location.href = "/";
+  };
 
   useEffect(() => {
     // Fetch User Profile
@@ -67,6 +79,45 @@ export default function Dashboard({ token }) {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearchResults([]);
+      return;
+    }
+    const delayDebounceFn = setTimeout(() => {
+      fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=12`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.tracks && data.tracks.items) {
+            setSearchResults(data.tracks.items);
+          }
+        })
+        .catch(err => console.error(err));
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, token]);
+
+  useEffect(() => {
+    if (!selectedPlaylist) {
+      setPlaylistTracks([]);
+      return;
+    }
+    fetch(`https://api.spotify.com/v1/playlists/${selectedPlaylist.id}/tracks?limit=20`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.items) {
+          const tracks = data.items.map(item => item.track).filter(t => t);
+          setPlaylistTracks(tracks);
+        }
+      })
+      .catch(err => console.error(err));
+  }, [selectedPlaylist, token]);
+
   const playTrack = (trackUri) => {
     if (!deviceId) {
       alert("Web Player is not ready yet. Please wait a moment.");
@@ -85,52 +136,130 @@ export default function Dashboard({ token }) {
 
   return (
     <div className="app__body">
-      <Sidebar />
+      <Sidebar token={token} onPlaylistSelect={(id, name) => setSelectedPlaylist({ id, name })} />
       <div className="main-view">
-        <div className="main-view__header glass">
-          <div className="user-widget">
+        <div className="main-view__header glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="search-bar" style={{ display: 'flex', alignItems: 'center', backgroundColor: '#fff', borderRadius: '500px', padding: '6px 12px', flex: 1, maxWidth: '300px' }}>
+            <span className="material-icons" style={{ color: '#000', marginRight: '8px' }}>search</span>
+            <input 
+              type="text" 
+              placeholder="Search for songs..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', color: '#000', fontFamily: 'inherit', fontSize: '14px' }}
+            />
+          </div>
+          <div className="user-widget" onClick={handleLogout} style={{ cursor: 'pointer' }} title="Click to Logout">
             <img 
               src={user?.images?.[0]?.url || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} 
               alt={user?.display_name || "User"} 
             />
             <span>{user?.display_name || "Loading..."}</span>
-            <span className="material-icons" style={{ fontSize: '18px', margin: '0 4px' }}>arrow_drop_down</span>
+            <span className="material-icons" style={{ fontSize: '18px', margin: '0 4px' }}>logout</span>
           </div>
         </div>
 
         <div className="main-view__content">
-          <h2 className="section-title">Your Top Tracks</h2>
-          <div className="card-grid">
-            {topTracks.map(track => (
-              <div 
-                className="item-card" 
-                key={track.id} 
-                onClick={() => playTrack(track.uri)}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="item-card__image-container">
-                  <img 
-                    src={track.album.images[0]?.url} 
-                    alt={track.name} 
-                    className="item-card__image" 
-                  />
-                  <div className="item-card__play">
-                    <span className="material-icons" style={{ fontSize: '28px', marginLeft: '4px' }}>play_arrow</span>
+          {searchQuery ? (
+            <>
+              <h2 className="section-title">Search Results</h2>
+              <div className="card-grid">
+                {searchResults.map(track => (
+                  <div 
+                    className="item-card" 
+                    key={track.id} 
+                    onClick={() => playTrack(track.uri)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="item-card__image-container">
+                      <img 
+                        src={track.album.images[0]?.url} 
+                        alt={track.name} 
+                        className="item-card__image" 
+                      />
+                      <div className="item-card__play">
+                        <span className="material-icons" style={{ fontSize: '28px', marginLeft: '4px' }}>play_arrow</span>
+                      </div>
+                    </div>
+                    <div className="item-card__title">{track.name}</div>
+                    <div className="item-card__subtitle">{track.artists.map(a => a.name).join(", ")}</div>
                   </div>
-                </div>
-                <div className="item-card__title">{track.name}</div>
-                <div className="item-card__subtitle">{track.artists.map(a => a.name).join(", ")}</div>
+                ))}
+                {searchResults.length === 0 && <div style={{ color: '#b3b3b3' }}>No results found.</div>}
               </div>
-            ))}
-            
-            {topTracks.length === 0 && (
-              <div style={{ color: '#b3b3b3' }}>No tracks found or you haven't listened to much yet.</div>
-            )}
-          </div>
+            </>
+          ) : selectedPlaylist ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+                <button 
+                  onClick={() => setSelectedPlaylist(null)} 
+                  style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', marginRight: '16px', display: 'flex', alignItems: 'center' }}
+                >
+                  <span className="material-icons" style={{ fontSize: '28px' }}>arrow_back</span>
+                </button>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>{selectedPlaylist.name}</h2>
+              </div>
+              <div className="card-grid">
+                {playlistTracks.map(track => (
+                  <div 
+                    className="item-card" 
+                    key={track.id} 
+                    onClick={() => playTrack(track.uri)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="item-card__image-container">
+                      <img 
+                        src={track.album?.images?.[0]?.url || "https://via.placeholder.com/150"} 
+                        alt={track.name} 
+                        className="item-card__image" 
+                      />
+                      <div className="item-card__play">
+                        <span className="material-icons" style={{ fontSize: '28px', marginLeft: '4px' }}>play_arrow</span>
+                      </div>
+                    </div>
+                    <div className="item-card__title">{track.name}</div>
+                    <div className="item-card__subtitle">{track.artists?.map(a => a.name).join(", ") || "Unknown Artist"}</div>
+                  </div>
+                ))}
+                {playlistTracks.length === 0 && <div style={{ color: '#b3b3b3' }}>No tracks found in this playlist.</div>}
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="section-title">Your Top Tracks</h2>
+              <div className="card-grid">
+                {topTracks.map(track => (
+                  <div 
+                    className="item-card" 
+                    key={track.id} 
+                    onClick={() => playTrack(track.uri)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="item-card__image-container">
+                      <img 
+                        src={track.album.images[0]?.url} 
+                        alt={track.name} 
+                        className="item-card__image" 
+                      />
+                      <div className="item-card__play">
+                        <span className="material-icons" style={{ fontSize: '28px', marginLeft: '4px' }}>play_arrow</span>
+                      </div>
+                    </div>
+                    <div className="item-card__title">{track.name}</div>
+                    <div className="item-card__subtitle">{track.artists.map(a => a.name).join(", ")}</div>
+                  </div>
+                ))}
+                
+                {topTracks.length === 0 && (
+                  <div style={{ color: '#b3b3b3' }}>No tracks found or you haven't listened to much yet.</div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
       <div style={{ position: 'absolute', bottom: 0, width: '100%', zIndex: 100 }}>
-        <Player token={token} deviceId={deviceId} currentTrack={currentTrack} isPlaying={isPlaying} setIsPlaying={setIsPlaying} />
+        <Player token={token} deviceId={deviceId} playerObj={playerObj} currentTrack={currentTrack} isPlaying={isPlaying} setIsPlaying={setIsPlaying} />
       </div>
     </div>
   );
