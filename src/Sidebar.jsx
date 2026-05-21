@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import './index.css';
 
 export default function Sidebar({ token, onPlaylistSelect }) {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { handleLogin } from './spotify';
 import './index.css';
 

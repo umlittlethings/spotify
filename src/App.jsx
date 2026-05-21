@@ -5,7 +5,7 @@ import { getTokenFromCode } from './spotify';
 import './index.css';
 
 function App() {
-  const [token, setToken] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('access_token'));
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -20,11 +20,6 @@ function App() {
           setToken(accessToken);
         }
       });
-    } else {
-        const storedToken = localStorage.getItem('access_token');
-        if (storedToken) {
-            setToken(storedToken);
-        }
     }
   }, []);
 

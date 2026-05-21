@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import Player from './Player';
 import './index.css';
@@ -77,10 +77,12 @@ export default function Dashboard({ token }) {
         playerObj.disconnect();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
     if (!searchQuery) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchResults([]);
       return;
     }
@@ -102,6 +104,7 @@ export default function Dashboard({ token }) {
 
   useEffect(() => {
     if (!selectedPlaylist) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPlaylistTracks([]);
       return;
     }
@@ -259,7 +262,7 @@ export default function Dashboard({ token }) {
         </div>
       </div>
       <div style={{ position: 'absolute', bottom: 0, width: '100%', zIndex: 100 }}>
-        <Player token={token} deviceId={deviceId} playerObj={playerObj} currentTrack={currentTrack} isPlaying={isPlaying} setIsPlaying={setIsPlaying} />
+        <Player token={token} deviceId={deviceId} playerObj={playerObj} currentTrack={currentTrack} isPlaying={isPlaying} />
       </div>
     </div>
   );

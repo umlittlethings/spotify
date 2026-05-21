@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './index.css';
 
-export default function Player({ token, deviceId, playerObj, currentTrack, isPlaying, setIsPlaying }) {
+export default function Player({ token, deviceId, playerObj, currentTrack, isPlaying }) {
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
 
